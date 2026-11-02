@@ -20,14 +20,12 @@ class SensorNode:
             energy_consumed = np.random.uniform(0.1, 0.5)
 
         elif behavior == "fault":
-            # A faulty node has weak communication and irregular delays.
             rssi = np.random.normal(-82, 6)
             packet_delivery_ratio = np.random.uniform(0.35, 0.70)
             delay = np.random.normal(100, 25)
             energy_consumed = np.random.uniform(0.2, 0.7)
 
         elif behavior == "blackhole":
-            # A blackhole node receives packets but drops most of them.
             rssi = np.random.normal(-60, 5)
             packet_delivery_ratio = np.random.uniform(0.0, 0.10)
             delay = np.random.normal(35, 8)
@@ -59,7 +57,13 @@ class SensorNode:
 
 
 class WSN:
-    def __init__(self, num_nodes=10, seed=42):
+    def __init__(
+        self,
+        num_nodes=10,
+        seed=42,
+        fault_nodes=None,
+        blackhole_nodes=None,
+    ):
         np.random.seed(seed)
 
         self.num_nodes = num_nodes
@@ -74,15 +78,38 @@ class WSN:
                 SensorNode(node_id=node_id, x=x, y=y)
             )
 
-        # Fixed node assignments make experiments reproducible.
-        self.behavior_by_node = {}
+        # Default assignments preserve the original simulation behavior.
+        if fault_nodes is None:
+            fault_nodes = [1] if num_nodes >= 3 else []
 
-        for node in self.nodes:
-            self.behavior_by_node[node.node_id] = "normal"
+        if blackhole_nodes is None:
+            blackhole_nodes = [2] if num_nodes >= 3 else []
 
-        if num_nodes >= 3:
-            self.behavior_by_node[1] = "fault"
-            self.behavior_by_node[2] = "blackhole"
+        fault_nodes = set(fault_nodes)
+        blackhole_nodes = set(blackhole_nodes)
+
+        if fault_nodes & blackhole_nodes:
+            raise ValueError(
+                "A node cannot be both faulty and a blackhole."
+            )
+
+        all_node_ids = set(range(num_nodes))
+        invalid_nodes = (fault_nodes | blackhole_nodes) - all_node_ids
+
+        if invalid_nodes:
+            raise ValueError(
+                f"Invalid node IDs: {sorted(invalid_nodes)}"
+            )
+
+        self.behavior_by_node = {
+            node_id: "normal" for node_id in range(num_nodes)
+        }
+
+        for node_id in fault_nodes:
+            self.behavior_by_node[node_id] = "fault"
+
+        for node_id in blackhole_nodes:
+            self.behavior_by_node[node_id] = "blackhole"
 
     def simulate(self, rounds=10):
         records = []
@@ -100,7 +127,13 @@ class WSN:
 
 
 if __name__ == "__main__":
-    network = WSN(num_nodes=10, seed=42)
+    network = WSN(
+        num_nodes=10,
+        seed=42,
+        fault_nodes=[1],
+        blackhole_nodes=[2],
+    )
+
     data = network.simulate(rounds=10)
 
     print("\nWSN Simulation with Faults and Attacks Completed!")
