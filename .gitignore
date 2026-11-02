@@ -1,4 +1,49 @@
+# Python virtual environments
 .venv/
-results/
-data/
+venv/
+env/
+
+# Python cache and compiled files
 __pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Local environment variables and secrets
+.env
+.env.*
+!.env.example
+
+# Generated datasets
+data/raw/*
+data/processed/*
+
+# Keep placeholders so empty folders can exist
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+
+# Generated models and experiment results
+results/*
+!results/.gitkeep
+
+# Logs
+*.log
+
+# Editor and operating system files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Test and coverage outputs
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
