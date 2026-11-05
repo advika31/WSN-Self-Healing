@@ -1,3 +1,4 @@
+
 import numpy as np
 import pandas as pd
 
@@ -10,36 +11,88 @@ class SensorNode:
         self.initial_energy = initial_energy
         self.residual_energy = initial_energy
 
-    def generate_reading(self, behavior="normal"):
-        """Generate network metrics for a normal, faulty, or malicious node."""
+    def generate_reading(
+        self,
+        behavior="normal",
+        challenging_mode=False,
+        round_number=1,
+    ):
+        """Generate normal, faulty, or blackhole telemetry."""
 
-        if behavior == "normal":
-            rssi = np.random.normal(-60, 5)
-            packet_delivery_ratio = np.random.uniform(0.94, 1.0)
-            delay = np.random.normal(30, 5)
-            energy_consumed = np.random.uniform(0.1, 0.5)
+        if not challenging_mode:
+            # Original simulation distributions.
+            if behavior == "normal":
+                rssi = np.random.normal(-60, 5)
+                pdr = np.random.uniform(0.94, 1.0)
+                delay = np.random.normal(30, 5)
+                energy_consumed = np.random.uniform(0.1, 0.5)
 
-        elif behavior == "fault":
-            rssi = np.random.normal(-82, 6)
-            packet_delivery_ratio = np.random.uniform(0.35, 0.70)
-            delay = np.random.normal(100, 25)
-            energy_consumed = np.random.uniform(0.2, 0.7)
+            elif behavior == "fault":
+                rssi = np.random.normal(-82, 6)
+                pdr = np.random.uniform(0.35, 0.70)
+                delay = np.random.normal(100, 25)
+                energy_consumed = np.random.uniform(0.2, 0.7)
 
-        elif behavior == "blackhole":
-            rssi = np.random.normal(-60, 5)
-            packet_delivery_ratio = np.random.uniform(0.0, 0.10)
-            delay = np.random.normal(35, 8)
-            energy_consumed = np.random.uniform(0.1, 0.5)
+            elif behavior == "blackhole":
+                rssi = np.random.normal(-60, 5)
+                pdr = np.random.uniform(0.0, 0.10)
+                delay = np.random.normal(35, 8)
+                energy_consumed = np.random.uniform(0.1, 0.5)
+
+            else:
+                raise ValueError(f"Unknown behavior: {behavior}")
 
         else:
-            raise ValueError(f"Unknown behavior: {behavior}")
+            # Challenging simulation: overlapping distributions.
+            if behavior == "normal":
+
+                # Most rounds are healthy.
+                if np.random.random() < 0.80:
+                    rssi = np.random.normal(-62, 7)
+                    pdr = np.random.uniform(0.85, 1.0)
+                    delay = np.random.normal(35, 10)
+                else:
+                    # Temporary environmental/network disturbance.
+                    rssi = np.random.normal(-73, 8)
+                    pdr = np.random.uniform(0.55, 0.85)
+                    delay = np.random.normal(75, 20)
+
+                energy_consumed = np.random.uniform(0.1, 0.6)
+
+            elif behavior == "fault":
+
+                # Faults are intermittent rather than constant.
+                if np.random.random() < 0.55:
+                    rssi = np.random.normal(-76, 8)
+                    pdr = np.random.uniform(0.45, 0.80)
+                    delay = np.random.normal(75, 20)
+                else:
+                    # The faulty node temporarily recovers.
+                    rssi = np.random.normal(-64, 8)
+                    pdr = np.random.uniform(0.78, 0.97)
+                    delay = np.random.normal(42, 15)
+
+                energy_consumed = np.random.uniform(0.2, 0.8)
+
+            elif behavior == "blackhole":
+
+                # Selective packet dropping.
+                rssi = np.random.normal(-62, 7)
+                pdr = np.random.uniform(0.30, 0.85)
+                delay = np.random.normal(45, 15)
+
+                energy_consumed = np.random.uniform(0.1, 0.6)
+
+            else:
+                raise ValueError(f"Unknown behavior: {behavior}")
 
         delay = max(delay, 1)
-        packet_delivery_ratio = np.clip(packet_delivery_ratio, 0, 1)
-        packet_loss = 1 - packet_delivery_ratio
+        pdr = np.clip(pdr, 0, 1)
+        packet_loss = 1 - pdr
 
         self.residual_energy = max(
-            0, self.residual_energy - energy_consumed
+            0,
+            self.residual_energy - energy_consumed,
         )
 
         return {
@@ -47,12 +100,13 @@ class SensorNode:
             "x": round(self.x, 2),
             "y": round(self.y, 2),
             "rssi": round(rssi, 2),
-            "packet_delivery_ratio": round(packet_delivery_ratio, 4),
+            "packet_delivery_ratio": round(pdr, 4),
             "packet_loss": round(packet_loss, 4),
             "delay_ms": round(delay, 2),
             "residual_energy": round(self.residual_energy, 2),
             "energy_consumed": round(energy_consumed, 4),
             "label": behavior,
+            "round": round_number,
         }
 
 
@@ -63,11 +117,13 @@ class WSN:
         seed=42,
         fault_nodes=None,
         blackhole_nodes=None,
+        challenging_mode=False,
     ):
         np.random.seed(seed)
 
         self.num_nodes = num_nodes
         self.gateway = (50, 50)
+        self.challenging_mode = challenging_mode
         self.nodes = []
 
         for node_id in range(num_nodes):
@@ -78,7 +134,6 @@ class WSN:
                 SensorNode(node_id=node_id, x=x, y=y)
             )
 
-        # Default assignments preserve the original simulation behavior.
         if fault_nodes is None:
             fault_nodes = [1] if num_nodes >= 3 else []
 
@@ -118,8 +173,11 @@ class WSN:
             for node in self.nodes:
                 behavior = self.behavior_by_node[node.node_id]
 
-                reading = node.generate_reading(behavior=behavior)
-                reading["round"] = round_number
+                reading = node.generate_reading(
+                    behavior=behavior,
+                    challenging_mode=self.challenging_mode,
+                    round_number=round_number,
+                )
 
                 records.append(reading)
 
@@ -132,12 +190,13 @@ if __name__ == "__main__":
         seed=42,
         fault_nodes=[1],
         blackhole_nodes=[2],
+        challenging_mode=True,
     )
 
-    data = network.simulate(rounds=10)
+    data = network.simulate(rounds=30)
 
-    print("\nWSN Simulation with Faults and Attacks Completed!")
-    print(f"Total sensor nodes: {network.num_nodes}")
+    print("\nChallenging WSN simulation completed!")
+    print(f"Total nodes: {network.num_nodes}")
     print(f"Total records: {len(data)}")
 
     print("\nRecords by behavior:")
@@ -156,7 +215,7 @@ if __name__ == "__main__":
         ].mean().round(3)
     )
 
-    output_path = "data/raw/wsn_scenario_data.csv"
+    output_path = "data/raw/wsn_challenging_data.csv"
     data.to_csv(output_path, index=False)
 
     print(f"\nDataset saved to {output_path}")
