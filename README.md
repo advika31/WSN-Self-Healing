@@ -87,4 +87,23 @@ It expects `data/processed/wsn_features.csv`, `results/anomaly_detector.pkl`, an
 
 ## Suggested research reporting
 
+### Topology-aware recovery proxy and manuscript draft
+
+Run the new recovery experiment with:
+
+```powershell
+python -m experiments.recovery_network_evaluation
+```
+
+It writes separate outputs to `results/recovery_v2/` and preserves the original recovery CSVs. This is a one-relay topology proxy with documented assumptions, not a packet-level network simulator. See `docs/recovery_v2_assumptions.md` for metric definitions and limitations. A working, literature-cited manuscript draft is in `docs/paper_draft.md`.
+
+### Packet-forwarding recovery evaluation
+
+```powershell
+python -m unittest discover -s tests -v
+python -m experiments.packet_recovery_evaluation
+```
+
+The packet-level experiment writes its independent outputs to `results/recovery_v3_packet/`. Across ten seeds, mean packet delivery ratio was 0.8802 for both recovery policies and 0.8705 for no recovery. This suggests rerouting may help in the chosen synthetic model, while the identical delivery result for generic and diagnosis-aware rerouting does not establish a diagnosis-specific advantage. Results and assumptions are detailed in `docs/packet_recovery_assumptions.md`.
+
 Describe the work as a simulation-based evaluation of node-wise generalization under the stated class assignments and noise distributions. Report all ten seeds, the macro metrics with mean and sample standard deviation, the rule thresholds, and the class counts in the held-out set. State that real-world WSN validation remains future work; do not present the simulated percentages as expected field performance.
