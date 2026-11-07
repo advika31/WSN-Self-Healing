@@ -4,7 +4,7 @@
 
 ## Abstract
 
-Wireless sensor networks must maintain data delivery despite unreliable nodes and routing attacks, but node-level diagnosis is useful only if it can inform an effective recovery decision. This study develops a simulation prototype that classifies node telemetry as normal, fault, or blackhole behavior and maps diagnoses to routing eligibility. A Random Forest model uses rolling summaries of received signal strength, packet delivery ratio (PDR), packet loss, delay, residual energy, and energy consumption. In a challenging synthetic setting with overlapping telemetry distributions, the previously recorded node-held-out evaluation reported accuracy 0.8239 and macro-F1 0.8160; fault recall (0.5650) was lower than normal (0.9717) and blackhole (0.9350) recall. A ten-seed packet-forwarding experiment models multi-hop paths, directed stochastic link outcomes, retransmissions, failed-edge avoidance, and route recomputation. Mean PDR was 0.8802 under both generic and diagnosis-aware rerouting and 0.8705 with no recovery. The paired-seed difference versus no recovery was 0.00964 (exploratory 95% t interval 0.00263–0.01665), while generic and diagnosis-aware routing had identical PDR on every seed. Thus, this simulation suggests rerouting may improve delivery under the selected assumptions, but does not show an incremental diagnosis-specific benefit. These are synthetic-model results, not evidence of deployed WSN performance.
+Wireless sensor networks must maintain data delivery despite unreliable nodes and routing attacks, but node-level diagnosis is useful only if it informs effective recovery. This study develops a synthetic simulation framework that classifies node telemetry as normal, fault, or blackhole behavior and maps diagnoses to routing decisions. The Random Forest uses rolling summaries of RSSI, packet delivery ratio (PDR), packet loss, delay, residual energy, and energy consumption. In the challenging node-held-out evaluation, accuracy was 0.8239 and macro-F1 was 0.8160; fault recall (0.5650) trailed normal (0.9717) and blackhole (0.9350) recall. A packet-level study models stochastic forwarding, retries, failed-link avoidance, and route recomputation. A 30-seed one-factor sensitivity study found rerouting improved PDR over no recovery across radio range, network size, and forwarding probabilities; at the 20-node, 48-unit baseline, PDR was 0.9397 for no recovery and 0.9980 for generic rerouting. Diagnosis-aware routing differed from generic rerouting by at most 0.00174 PDR, with paired intervals including zero. Results support rerouting under these simulator assumptions, but do not establish a diagnosis-specific delivery advantage or field performance.
 
 **Keywords:** wireless sensor networks; fault diagnosis; blackhole attack; Random Forest; routing recovery; simulation
 
@@ -20,7 +20,7 @@ The experiments highlight an important distinction. Classification performance d
 
 1. How accurately does a Random Forest distinguish normal, fault, and blackhole telemetry when class distributions overlap?
 2. How does this classifier compare with a decision tree and a fixed rule-based baseline?
-3. Do diagnosis-aware route eligibility and fault penalties improve delivery, availability, delay, or modeled energy relative to generic rerouting and no recovery in a paired synthetic packet-forwarding experiment?
+3. Does packet rerouting improve delivery relative to no recovery across selected radio-range, network-size, and forwarding-probability conditions, and does diagnosis-aware routing improve on generic rerouting?
 
 ## 3. Methods
 
@@ -48,13 +48,19 @@ End-to-end delivery probability is modeled as the product of the source and rela
 
 The follow-on experiment retains the six held-out nodes as sources and relays and uses a 48-unit disk communication graph. Each source offers 20 packets per round. Link delivery is stochastic and directed, with distance-dependent radio success; intermediate forwarding success depends on the simulator's ground-truth behavior label. Each hop gets up to three attempts. A failed edge is blocked for the current packet, after which the two recovery policies recompute a route. No recovery keeps its initial shortest route and drops the packet after retries fail. Policies receive the same topology and pre-drawn transmission trial values for each offered packet, directed edge, and attempt. Route availability, packet delivery, delay, retransmissions, energy, and route changes are recorded. Parameters and limitations are documented in `docs/packet_recovery_assumptions.md`.
 
-### 3.5 Reproducibility
+### 3.5 Sensitivity and scalability design
+
+The one-factor-at-a-time study uses one shared baseline (20 nodes, radio range 48, blackhole forwarding probability 0.08, fault forwarding probability 0.62) and nine alternatives: radio ranges 35, 60, and 75; network sizes 30 and 50; blackhole forwarding probabilities 0.05 and 0.20; and fault forwarding probabilities 0.40 and 0.80. Each of the ten conditions is run on 30 seeds. Each node offers ten packets in each of 30 rounds. Behavior prevalence is 20% fault, 20% blackhole, and 60% normal. Four-fold stratified group cross-validation is used at 20 nodes and five-fold at 30 and 50 nodes, so each routed node has an out-of-fold prediction. Telemetry/predictions are reused across parameter conditions of a fixed size and seed, with keyed link draws for paired policy comparisons. The network-size change uses matched seeds and a shared 20-node placement/label core; simulator telemetry's sequential random stream means size conditions are not exact common-random-number replications. Outcomes are summarized by seed, with seed as the experimental unit.
+
+### 3.6 Reproducibility
 
 Run the classification and recovery modules from the repository root in the documented Python environment. The packet experiment writes to `results/recovery_v3_packet/` and preserves legacy recovery outputs:
 
 ```powershell
 python -m unittest discover -s tests -v
 python -m experiments.packet_recovery_evaluation
+python -m experiments.packet_recovery_sensitivity
+python -m experiments.plot_recovery_sensitivity
 ```
 
 ## 4. Results
@@ -81,17 +87,27 @@ Differences are negligible and do not favor diagnosis-aware recovery. Route avai
 
 The 10-seed packet experiment comprised 108,000 packet-policy records. Physical route availability was 0.9167 ± 0.2115 for all policies. PDR was 0.8802 ± 0.2467 for both recovery policies and 0.8705 ± 0.2439 for no recovery. The paired mean PDR difference versus no recovery was 0.00964 (sample SD 0.00979; exploratory paired t interval 0.00263–0.01665). Diagnosis-aware and generic rerouting had identical PDR for every seed. Diagnosis-aware routing used 2.4397 ± 0.7028 abstract energy units per offered packet and 10.4186 ± 3.4957 ms modeled delay, compared with 2.4438 ± 0.7029 units and 10.4367 ± 3.4946 ms for generic rerouting, and 2.3647 ± 0.6444 units and 10.1122 ± 3.2676 ms for no recovery. Rerouting modestly improves delivery over retaining a failed path in this simulator, with increased modeled delay and energy; diagnosis-specific routing does not improve delivery over generic rerouting. High between-seed variation reflects sensitivity to the six-node topology, so these estimates are exploratory.
 
+### 4.4 Sensitivity and scalability
+
+The 30-seed sensitivity study evaluated ten unique conditions: one shared baseline and nine one-factor alternatives. At the baseline (20 nodes, range 48, blackhole forwarding probability 0.08, fault forwarding probability 0.62), mean PDR was 0.9397 for no recovery, 0.9980 for generic rerouting, and 0.9981 for diagnosis-aware routing. The paired diagnosis-aware minus no-recovery difference was +0.05834 (95% exploratory t interval +0.04304 to +0.07365). Across all conditions, the recovery-minus-no-recovery paired intervals remained above zero; the diagnosis-aware PDR gain ranged from +0.00331 at radio range 75 to +0.12618 at range 35.
+
+The benefit narrowed as radio connectivity increased: at range 35, PDR was 0.8090 for no recovery and 0.9352 for diagnosis-aware routing; at range 75, it was 0.9967 and 1.0000. At network sizes 30 and 50, recovery PDR approached 1.000 while no-recovery PDR was 0.9300 and 0.9348. Changing blackhole forwarding probability from 0.05 to 0.20 moved no-recovery PDR from 0.9362 to 0.9523, while diagnosis-aware PDR stayed between 0.9979 and 0.9988. Across all ten conditions, diagnosis-aware versus generic rerouting differences were at most 0.00174; every paired 95% interval included zero. This study therefore supports a rerouting benefit within the tested model, but still does not show an incremental diagnosis-specific benefit. At baseline, recovery added about 0.338 ms and 0.052 abstract energy units per offered packet versus no recovery; at range 35, these costs increased to about 2.125 ms and 0.437 units.
+
+The mean sensitivity results and seed-level paired contrasts are saved in `results/recovery_sensitivity_v1/`. Figure 1 plots mean PDR and ±1 sample standard deviation across the four parameter families.
+
+![Packet delivery ratio across sensitivity conditions](../results/recovery_sensitivity_v1/figures/packet_delivery_sensitivity.png)
+
 ## 5. Discussion
 
-The experiments suggest two separate research challenges. First, the classifier has difficulty identifying intermittent faults under overlapping distributions. Second, even accurate diagnoses do not automatically improve routing if the action policy is poorly matched to topology or if alternatives are not meaningfully different. The packet experiment provides initial evidence that route recomputation after link failure can improve delivery over retaining the failed route, but diagnosis-aware and generic rerouting tie on PDR. It therefore does not establish an incremental diagnosis-specific gain. The six-node synthetic graph is too small and abstract to support performance claims for deployed networks.
+The experiments suggest two separate research challenges. First, the classifier has difficulty identifying intermittent faults under overlapping distributions. Second, even accurate diagnoses do not automatically improve routing if the action policy is poorly matched to topology or if alternatives are not meaningfully different. The sensitivity study indicates a consistent rerouting benefit over retaining the initial path across the tested conditions, with a smaller benefit at high radio connectivity as PDR approaches its ceiling. Diagnosis-aware and generic rerouting remain nearly indistinguishable in PDR, and their paired intervals overlap zero in every condition. These findings support the project's differentiated action framework as an implementation concept, but do not validate that fault-versus-blackhole differentiation improves network outcomes. The model remains synthetic and uncalibrated.
 
-Several assumptions limit interpretation. The packet experiment uses a disk connectivity model and selected distance/behavior probabilities rather than calibrated radio traces. It omits MAC contention, collisions, queues, control-plane overhead, mobility, and route discovery messages. The abstract energy model is not physically calibrated and excludes sensing, computation, and idle listening. Only six held-out nodes participate in the routing pool. Forwarding success is assigned directly from synthetic ground-truth labels, so this is a controlled mechanism experiment rather than independent networking validation.
+Several assumptions limit interpretation. The packet experiments use a disk connectivity model and selected distance/behavior probabilities rather than calibrated radio traces. They omit MAC contention, collisions, queues, control-plane overhead, mobility, and route discovery messages. The abstract energy model is not physically calibrated and excludes sensing, computation, and idle listening. The first packet run used six held-out nodes; the sensitivity study uses all nodes with grouped out-of-fold predictions. Forwarding success is assigned directly from synthetic ground-truth labels, so these are controlled mechanism experiments rather than independent networking validation. The network-size conditions use matched seeds and a shared core, although the simulator's sequential random stream means telemetry is not exactly paired across different sizes.
 
 The study should therefore be positioned as an early simulation prototype and methodological audit. Comparison with RPL or another explicit protocol implementation is future work, not a result of the present code. A follow-on should scale the packet model, calibrate it against an established simulator or testbed, include routing/control overhead and battery depletion, add oracle and random/geometric baselines, and assess paired per-seed differences under pre-specified outcomes. Hardware validation on an ESP32 testbed is also required before any deployment claim.
 
 ## 6. Conclusion
 
-This prototype combines synthetic telemetry classification with diagnosis-driven route selection. The challenging classification results show useful separation for normal and blackhole classes but weaker fault recall and a large cross-domain performance decline. The packet-forwarding experiment suggests that rerouting can improve delivery over keeping a failed route under the selected synthetic assumptions. Diagnosis-aware routing ties generic rerouting on PDR, so the current results do not establish a diagnosis-specific gain. Larger packet-level validation with calibrated radio, routing, energy, and attack models, followed by independent sensor data and testbed evaluation, is needed before making deployment claims.
+This prototype combines synthetic telemetry classification with diagnosis-driven route selection. The challenging classification results show useful separation for normal and blackhole classes but weaker fault recall and a large cross-domain performance decline. Across the tested sensitivity conditions, packet rerouting improved delivery over retaining the initial route. Diagnosis-aware routing remained practically tied with generic rerouting on PDR, so the current results do not establish a diagnosis-specific gain. The next step is to freeze this experimental design, refine the literature gap and manuscript, and pursue calibration or testbed validation before making deployment claims.
 
 ## References
 
@@ -103,7 +119,7 @@ This prototype combines synthetic telemetry classification with diagnosis-driven
 
 - Re-run all paper-reported experiments from a clean environment and archive exact software versions and seeds.
 - Reconcile the older and new recovery estimates in the narrative; they use different evaluation procedures and must not be pooled.
-- Add uncertainty intervals and paired tests only after selecting a pre-specified primary outcome and a defensible independent experimental unit.
+- Treat the paired t intervals as exploratory; pre-specify contrasts and address multiple comparisons before making confirmatory claims.
 - Verify every reference and add current primary studies directly relevant to diagnosis-aware recovery and routing under blackhole behavior.
 - Add all complete results tables, including standard deviations and per-class precision/recall/F1, from the committed experiment artifacts.
 - Strengthen the networking model and baseline suite before framing a recovery contribution.

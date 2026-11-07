@@ -106,4 +106,13 @@ python -m experiments.packet_recovery_evaluation
 
 The packet-level experiment writes its independent outputs to `results/recovery_v3_packet/`. Across ten seeds, mean packet delivery ratio was 0.8802 for both recovery policies and 0.8705 for no recovery. This suggests rerouting may help in the chosen synthetic model, while the identical delivery result for generic and diagnosis-aware rerouting does not establish a diagnosis-specific advantage. Results and assumptions are detailed in `docs/packet_recovery_assumptions.md`.
 
+### Packet recovery sensitivity study
+
+```powershell
+python -m experiments.packet_recovery_sensitivity
+python -m experiments.plot_recovery_sensitivity
+```
+
+This runs a shared baseline and nine one-factor alternatives across 30 seeds, changing radio range, network size, or fault/blackhole forwarding probability. Outputs checkpoint to `results/recovery_sensitivity_v1/`; see `docs/recovery_sensitivity_assumptions.md` for the frozen design, paired analysis, and findings. The paper-ready PDR figure is `results/recovery_sensitivity_v1/figures/packet_delivery_sensitivity.png`.
+
 Describe the work as a simulation-based evaluation of node-wise generalization under the stated class assignments and noise distributions. Report all ten seeds, the macro metrics with mean and sample standard deviation, the rule thresholds, and the class counts in the held-out set. State that real-world WSN validation remains future work; do not present the simulated percentages as expected field performance.
