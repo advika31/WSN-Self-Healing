@@ -16,8 +16,15 @@ class SensorNode:
         behavior="normal",
         challenging_mode=False,
         round_number=1,
+        record_latent=False,
     ):
-        """Generate normal, faulty, or blackhole telemetry."""
+        """Generate normal, faulty, or blackhole telemetry.
+
+        record_latent adds a ``latent_degraded`` flag (challenging mode only):
+        True when the node is in its degraded/disturbed state this round.
+        Off by default, so existing experiments are unchanged.
+        """
+        latent_degraded = False
 
         if not challenging_mode:
             # Original simulation distributions.
@@ -52,6 +59,7 @@ class SensorNode:
                     pdr = np.random.uniform(0.85, 1.0)
                     delay = np.random.normal(35, 10)
                 else:
+                    latent_degraded = True
                     # Temporary environmental/network disturbance.
                     rssi = np.random.normal(-73, 8)
                     pdr = np.random.uniform(0.55, 0.85)
@@ -63,6 +71,7 @@ class SensorNode:
 
                 # Faults are intermittent rather than constant.
                 if np.random.random() < 0.55:
+                    latent_degraded = True
                     rssi = np.random.normal(-76, 8)
                     pdr = np.random.uniform(0.45, 0.80)
                     delay = np.random.normal(75, 20)
@@ -95,7 +104,7 @@ class SensorNode:
             self.residual_energy - energy_consumed,
         )
 
-        return {
+        reading = {
             "node_id": self.node_id,
             "x": round(self.x, 2),
             "y": round(self.y, 2),
@@ -108,6 +117,9 @@ class SensorNode:
             "label": behavior,
             "round": round_number,
         }
+        if record_latent:
+            reading["latent_degraded"] = bool(latent_degraded)
+        return reading
 
 
 class WSN:
@@ -166,7 +178,7 @@ class WSN:
         for node_id in blackhole_nodes:
             self.behavior_by_node[node_id] = "blackhole"
 
-    def simulate(self, rounds=10):
+    def simulate(self, rounds=10, record_latent=False):
         records = []
 
         for round_number in range(1, rounds + 1):
@@ -177,6 +189,7 @@ class WSN:
                     behavior=behavior,
                     challenging_mode=self.challenging_mode,
                     round_number=round_number,
+                    record_latent=record_latent,
                 )
 
                 records.append(reading)

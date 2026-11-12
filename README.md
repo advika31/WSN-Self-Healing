@@ -116,3 +116,44 @@ python -m experiments.plot_recovery_sensitivity
 This runs a shared baseline and nine one-factor alternatives across 30 seeds, changing radio range, network size, or fault/blackhole forwarding probability. Outputs checkpoint to `results/recovery_sensitivity_v1/`; see `docs/recovery_sensitivity_assumptions.md` for the frozen design, paired analysis, and findings. The paper-ready PDR figure is `results/recovery_sensitivity_v1/figures/packet_delivery_sensitivity.png`.
 
 Describe the work as a simulation-based evaluation of node-wise generalization under the stated class assignments and noise distributions. Report all ten seeds, the macro metrics with mean and sample standard deviation, the rule thresholds, and the class counts in the held-out set. State that real-world WSN validation remains future work; do not present the simulated percentages as expected field performance.
+
+### Day 1 transient-fault quarantine experiment
+
+```powershell
+python -m unittest discover -s tests -v
+python -m experiments.transient_fault_quarantine
+```
+
+This isolated experiment uses two controlled sparse/bottleneck graphs to compare permanent generic exclusion with fault quarantine and re-admission after two consecutive normal diagnoses. Node 8 is hard-isolated as a perfect-blackhole-containment control in every strategy; this is a simplifying assumption, not a detector result. The fault and diagnosis traces are synthetic inputs, and the module does not use the learned classifier. Outputs go to `results/transient_fault_quarantine_day1/`. See `docs/transient_fault_quarantine_day1.md` for metric definitions and limitations. Network lifetime is omitted because the current model has no defensible battery-depletion model.
+
+### Recovery policy v2
+
+```powershell
+python -m unittest discover -s tests -v
+python -m experiments.recovery_policy_v2
+```
+
+This newer, separate study uses node-held-out predictions, two fault-load settings, sparse and single-bottleneck graphs, class-specific actions, an explicit abstract battery budget, and paired seed-level comparisons. Its primary contrast is diagnosis-aware recovery versus blind rerouting on PDR; permanent generic exclusion is a secondary comparator. Metrics and censoring rules are defined in `docs/recovery_policy_v2.md`; outputs go to `results/recovery_policy_v2/`. Treat the battery/lifetime outputs as uncalibrated proxies.
+
+This is the preserved initial run. Its all-normal control revealed that the 1,000-unit abstract battery budget caused service failure even without anomalous nodes. Do not use v2 alone to make claims about fault diagnosis or pool it with v3. See `docs/recovery_policy_v2.md` for the original design.
+
+### Recovery policy v3 (current calibrated-control run)
+
+```powershell
+python -m unittest discover -s tests -v
+python -m experiments.recovery_policy_v3
+```
+
+This preserves v2 and writes independent results to `results/recovery_policy_v3/`. It doubles the abstract energy budget and adds a no-fault control, while retaining the 30 paired seeds, sparse and route-critical bottleneck topologies, 20%/40% fault loads, transient fault quarantine/readmission, permanent predicted-blackhole isolation and alerts. It also counts alternate-route fallbacks after link retry exhaustion. The primary paired PDR differences (diagnosis-aware minus blind rerouting) were −0.3471 (95% CI −0.3735 to −0.3208), −0.3710 (−0.3925 to −0.3495), −0.2861 (−0.3655 to −0.2067), and −0.5757 (−0.6366 to −0.5149) for bottleneck/20%, bottleneck/40%, sparse/20%, and sparse/40%, respectively. The healthy control achieved mean PDR 0.9998. These are synthetic stress-test results and show no diagnosis-aware delivery advantage. Energy and lifetime remain uncalibrated proxies; see `docs/recovery_policy_v3.md`.
+
+### Dataset and hardware follow-up
+
+The WSN-DS and Intel Lab files have been downloaded; the ESP32 board and power meter are unavailable. See `docs/datasets_and_hardware_plan.md` for data handling, dataset limitations, and the device-measurement plan. The source audit and 18-paper candidate review set are tracked in `docs/literature_review.md`; the manuscript still needs full-text review and final bibliography checks before submission.
+
+The WSN-DS and Intel Lab files have since been placed under `data/raw/`. Run their grouped, classifier-only evaluation with:
+
+```powershell
+python -m experiments.public_dataset_validation
+```
+
+WSN-DS is treated as simulated attack traffic; Intel Lab is used only as real environmental readings with synthetic injected temperature faults. Neither provides a public-data packet-recovery result. Outputs and detailed data provenance/limitations are documented in `docs/public_dataset_validation.md` and saved to `results/public_dataset_validation/`. ESP32 measurements remain future work because the board and power meter are unavailable.
