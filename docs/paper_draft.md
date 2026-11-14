@@ -1,5 +1,7 @@
 # Diagnosis-Aware Fault Classification and Recovery in a Simulated Wireless Sensor Network
 
+> **Archived earlier draft.** Current analysis and literature framing are in [`paper_draft_v4.md`](paper_draft_v4.md). This v3-era text contains superseded recovery findings; do not cite it as the current manuscript.
+
 **Draft status:** working draft for internal review. Evidence comprises synthetic packet simulation and separate public-data classifier checks; no measured network recovery or hardware result is available. Recovery-policy v2 is superseded for interpretation by v3 because its no-fault control exposed battery-budget service failure. Do not submit until full-text novelty review, bibliography verification, supervisor review, and venue-specific formatting are complete.
 
 ## Abstract

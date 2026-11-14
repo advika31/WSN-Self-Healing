@@ -324,6 +324,24 @@ def send_packet(src, strategy, route, fallback0, graph, positions, labels,
     return out
 
 
+def sustained_recovery_rounds(per_round_pdr, pre_crash_pdr, crash_round,
+                              horizon=ROUNDS, consecutive=3, threshold=0.95):
+    """Rounds after crash until PDR stays above a fraction of baseline.
+
+    Returns the observed delay, or the number of post-crash rounds if recovery
+    is not observed before the experiment ends. ``crash_round`` is 1-indexed.
+    """
+    if pre_crash_pdr <= 0:
+        return float(horizon - crash_round + 1)
+    target = threshold * pre_crash_pdr
+    last_start = horizon - consecutive + 1
+    for round_number in range(crash_round, last_start + 1):
+        start = round_number - 1
+        if np.all(np.asarray(per_round_pdr)[start:start + consecutive] >= target):
+            return float(round_number - crash_round)
+    return float(horizon - crash_round + 1)
+
+
 def run_scenario(scenario, seed, state):
     labels, positions = state["labels"], state["positions"]
     graph = build_graph(positions, scenario["radio"])
@@ -346,9 +364,11 @@ def run_scenario(scenario, seed, state):
         tiers = {s: policy_tiers(s, preds, labels, degraded, memory)
                  for s in STRATEGIES}
         for src in range(NODES):
-            if src in crashed:
-                continue
-            routes = {s: find_route(src, graph, tiers[s]) for s in STRATEGIES}
+            # Keep application demand fixed after crashes. A crashed source still
+            # offers its packet but cannot transmit; counting it as a miss avoids
+            # inflating PDR by silently removing failed sources from the denominator.
+            routes = ({s: (None, False) for s in STRATEGIES} if src in crashed else
+                      {s: find_route(src, graph, tiers[s]) for s in STRATEGIES})
             for pk in range(PACKETS):
                 prng = np.random.default_rng(
                     np.random.SeedSequence([seed, rnd, src, pk, 9001]))
@@ -357,10 +377,13 @@ def run_scenario(scenario, seed, state):
                 drop_u = prng.random(NODES + 1)
                 for s in STRATEGIES:
                     route, fb0 = routes[s]
-                    o = send_packet(src, s, route, fb0 and route is not None, graph,
-                                    positions, labels, scenario, degraded, crashed,
-                                    tiers[s], table_full, drop_u,
-                                    acc[s]["node_energy"])
+                    o = (dict(delivered=False, delay=0.0, energy=0.0, retx=0,
+                              changes=0, fallback=False, silent_loss=False, hops=0)
+                         if src in crashed else
+                         send_packet(src, s, route, fb0 and route is not None, graph,
+                                     positions, labels, scenario, degraded, crashed,
+                                     tiers[s], table_full, drop_u,
+                                     acc[s]["node_energy"]))
                     a = acc[s]
                     a["off"] += 1
                     a["ok"] += o["delivered"]
@@ -385,11 +408,7 @@ def run_scenario(scenario, seed, state):
         rec = np.nan
         if scenario["crash"] > 0:
             pre = pr[CRASH_ROUND - 8:CRASH_ROUND - 1].mean()
-            rec = float(ROUNDS - CRASH_ROUND + 1)
-            for k in range(CRASH_ROUND - 1, ROUNDS):
-                if pr[k] >= 0.95 * pre:
-                    rec = float(k - (CRASH_ROUND - 1))
-                    break
+            rec = sustained_recovery_rounds(pr, pre, CRASH_ROUND)
         rows.append(dict(
             scenario=scenario["name"], seed=seed, strategy=s,
             pdr=a["ok"] / a["off"],

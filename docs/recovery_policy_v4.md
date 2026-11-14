@@ -33,41 +33,40 @@ Reproduce: `python -m experiments.recovery_policy_v4` (about 2 minutes, 30 seeds
   Everything else is secondary/exploratory.
 
 ## Results (means over 30 seeds)
-| Scenario | no_rec | blind | generic_excl | generic_quar | diagnosis_aware | oracle |
-|---|---|---|---|---|---|---|
-| S1 dense, detectable | 0.931 | 0.999 | 0.999 | 0.999 | 0.999 | 0.999 |
-| S2 dense, silent | 0.924 | 0.938 | 0.995 | 0.995 | 0.999 | 0.999 |
-| S3 sparse, silent | 0.824 | 0.847 | 0.940 | 0.935 | 0.957 | 0.962 |
-| S4 sparse, silent, transient | 0.811 | 0.842 | 0.936 | 0.931 | 0.951 | 0.955 |
-| S5 bottleneck, silent, transient | 0.745 | 0.816 | 0.994 | 0.991 | 0.9995 | 1.000 |
-| S6 S4 + crashes | 0.772 | 0.827 | 0.920 | 0.914 | 0.936 | 0.941 |
+The v4 code was rerun after fixing the S6 denominator so crashed sources remain offered demand and replacing the single-round recovery trigger with a three-consecutive-round criterion. The previous tables and interpretation are superseded. The prior output snapshot is retained locally in `results/recovery_policy_v4_before_load_fix/` for audit.
 
-Primary contrast, diagnosis_aware minus generic_quarantine (PDR): S1 +0.0000; S2 +0.0041 (Holm p=0.23);
-S3 +0.0228 [0.0044, 0.0412] (Holm p=0.060); S4 +0.0201 [0.0042, 0.0360] (p=0.060);
-S5 +0.0086 [0.0028, 0.0144] (p=0.027); S6 +0.0226 [0.0102, 0.0351] (p=0.005).
+| Scenario | no recovery | blind reroute | generic exclusion | generic quarantine | diagnosis-aware | oracle |
+|---|---:|---:|---:|---:|---:|---:|
+| S1 dense, detectable | 0.9306 | 0.9994 | 0.9994 | 0.9994 | 0.9994 | 0.9994 |
+| S2 dense, silent | 0.9241 | 0.9384 | 0.9946 | 0.9952 | 0.9984 | 0.9994 |
+| S3 sparse, silent | 0.8235 | 0.8468 | 0.9412 | 0.9377 | 0.9585 | 0.9616 |
+| S4 sparse, silent, transient | 0.8110 | 0.8415 | 0.9374 | 0.9337 | 0.9521 | 0.9554 |
+| S5 bottleneck, silent, transient | 0.7454 | 0.8156 | 0.9937 | 0.9944 | 0.9987 | 1.0000 |
+| S6 sparse, transient, 15% crashes | 0.6963 | 0.7466 | 0.8323 | 0.8289 | 0.8464 | 0.8494 |
 
-Reading: (1) when drops are detectable every reactive policy sits at the ceiling, which explains the earlier
-null result; (2) when blackholes drop silently, proactive exclusion is worth 6-18 PDR points over blind
-rerouting; (3) separating fault from attack adds about 1-2 PDR points beyond a memory-matched
-diagnosis-blind control, confirmed after Holm correction in S5 and S6 and borderline in S3/S4;
-(4) the oracle is within about 0.5 points of the learned diagnosis, so the classifier is not the bottleneck here.
+Primary contrast, diagnosis-aware minus generic quarantine (PDR; paired 95% intervals are unadjusted):
 
-Non-PDR outcomes: node-level attack alert precision 0.83 (recall 1.0) for diagnosis-aware versus 0.49 when
-every flagged node is treated as a suspected attacker (a diagnosis-blind system cannot raise a meaningful
-attack alert). Energy per delivered packet is lower than blind in S1-S5 but higher in S6. Hotspot energy
-(max per-node energy per round) is 15-50% higher than blind in S3-S6 because proactive policies concentrate
-traffic on surviving relays, so a lifetime proxy (battery / hotspot drain) would favour blind rerouting
-even though it delivers far fewer packets. Abstract units only; no battery-depletion model.
-After the S6 crash, PDR recovery took 2.4 rounds (diagnosis-aware) versus 5.1 (blind) and 9.4 (no recovery).
-Average normal nodes falsely isolated per seed: 0.3.
+| Scenario | Mean paired difference | 95% CI | Raw p | Holm-adjusted p |
+|---|---:|---:|---:|---:|
+| S1 | +0.00001 | [−0.00001, +0.00003] | 0.326 | 0.352 |
+| S2 | +0.00318 | [−0.00151, +0.00786] | 0.176 | 0.352 |
+| S3 | +0.02083 | [+0.00372, +0.03795] | 0.0188 | 0.0803 |
+| S4 | +0.01840 | [+0.00368, +0.03311] | 0.0161 | 0.0803 |
+| S5 | +0.00430 | [+0.00055, +0.00806] | 0.0262 | 0.0803 |
+| S6 | +0.01745 | [+0.00692, +0.02798] | 0.00204 | 0.0122 |
 
-## Limitations (state these in the paper)
-* All dynamics are assumptions. The advantage exists only under silent-drop blackholes and constrained
-  connectivity; the result is conditional on that modelling choice, not a field finding.
-* S5 is a constructed stress topology. Do not generalise from it.
-* Forwarding behaviour is assigned from ground-truth labels; no MAC, queues, collisions or control traffic.
-* No calibrated energy or battery model; "lifetime" is only a hotspot proxy.
-* The classifier here (node-grouped OOF, 4 faults/20 nodes, fault recall about 0.84) is a different protocol
-  from the earlier 6-node held-out run (fault recall 0.565). Do not mix the numbers.
-* Hyperparameters (1.5 and 2.0 penalties, 2-of-3 confirmation, 2-round quarantine) were fixed a priori
-  but not tuned or sensitivity-tested; a sweep is future work.
+Only S6's primary p-value remains below 0.05 after Holm correction. The result is a conditional improvement over generic quarantine within this scenario and this simulator; it is not a general benefit. S3–S5 are positive before correction but do not meet the adjusted threshold. Every conclusion should include the corrected comparison and its limitations.
+
+After the S6 crash, diagnosis-aware and generic-quarantine recovery times were both right-censored at 26 rounds: neither had three consecutive rounds at or above 95% of its pre-crash PDR mean. Blind rerouting and no recovery averaged 25.13 rounds (SD 4.75), partly because some runs met the threshold before censoring. This is not proof of higher service. Diagnosis-aware S6 PDR was 0.8464, generic-quarantine PDR 0.8289 and blind-reroute PDR 0.7466. Route availability was 0.8953 for every policy.
+
+Diagnosis-aware S6 used 3.983 abstract energy units per offered packet (SD 1.076) versus 3.832 (1.038) for generic quarantine and 3.325 (0.686) for blind rerouting. These are simulator costs, not joules. Maximum per-node energy is a traffic-concentration proxy only; no battery model supports network-lifetime estimation. The diagnosis-aware packet-study classifier's mean fault recall was 0.7679 (95% t interval 0.7535–0.7824), not the earlier 0.84 estimate. The classifier summary and full seed-wise outcomes are in `results/recovery_policy_v4/`.
+
+## Limitations
+* Every behavior, link and cost is synthetic. Forwarding probability is assigned from ground-truth labels; the model has no MAC, queues, collisions, control traffic or calibrated radio stack.
+* Silent blackholes acknowledge then discard packets. Whether this behavior is visible depends on the protocol and acknowledgment layer.
+* The primary comparison bundles several policy differences; it does not isolate diagnosis causally.
+* S5 is a constructed stress topology, not a sample of field network topologies.
+* No finite battery or calibrated energy model exists. Do not call the hotspot/load measure network lifetime.
+* The classifier has only four fault and four blackhole nodes in the 20-node scenarios. Fault recall is imperfect.
+* The paired intervals are ordinary 95% t intervals; p-values, not intervals, are Holm-adjusted. The one adjusted-positive result is conditional on the six frozen scenarios.
+* Policy penalties and confirmation/quarantine rules were pre-specified but not sensitivity-tested.

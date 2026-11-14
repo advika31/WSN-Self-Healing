@@ -85,6 +85,14 @@ class V4Tests(unittest.TestCase):
         inner = [labels[n] for n in range(4)]
         self.assertEqual(sorted(inner), ["blackhole", "fault", "fault", "normal"])
 
+    def test_recovery_requires_three_consecutive_rounds(self):
+        pdr = np.array([0.9] * 14 + [0.95, 0.94, 0.95, 0.95, 0.95] + [0.9] * 5)
+        self.assertEqual(v4.sustained_recovery_rounds(pdr, 1.0, 15), 2.0)
+
+    def test_non_recovery_is_censored_at_remaining_horizon(self):
+        pdr = np.array([0.8] * 40)
+        self.assertEqual(v4.sustained_recovery_rounds(pdr, 0.9, 15), 26.0)
+
 
 if __name__ == "__main__":
     unittest.main()

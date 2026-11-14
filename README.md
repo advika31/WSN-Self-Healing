@@ -2,6 +2,20 @@
 
 A Python prototype for detecting normal, faulty, and blackhole sensor nodes in a simulated wireless sensor network (WSN), then applying diagnosis and recovery actions. The project includes a Random Forest classifier, a node-wise evaluation, robustness experiments with noisy measurements, and a fixed rule-based reference classifier.
 
+## Current research status (12 November 2026)
+
+The current packet-recovery study is **recovery-policy v4**. The manuscript draft that matches the latest code and rerun is [`docs/paper_draft_v4.md`](docs/paper_draft_v4.md); the older [`docs/paper_draft.md`](docs/paper_draft.md) is retained as an earlier draft and should not be used for current findings. The source and methods audit of all 16 unique papers supplied for review is in [`docs/literature_review.md`](docs/literature_review.md).
+
+The prespecified primary comparison is diagnosis-aware recovery versus diagnosis-blind generic quarantine on PDR, with 30 paired seeds in each of six scenarios and Holm adjustment across the six tests. Only S6 (sparse transient faults plus 15% normal-node crashes) remained significant after correction: paired difference +0.01745, ordinary paired 95% CI [+0.00692, +0.02798], Holm p=0.0122. This finding is conditional on the custom simulator and bundled policy differences; it is not field evidence or an isolated causal effect of diagnosis. Current S6 PDR was 0.846 for diagnosis-aware recovery. Crash recovery was censored at 26 rounds for that policy under the three-consecutive-round definition.
+
+Run the current study with:
+
+```powershell
+.\.venv\Scripts\python.exe -m experiments.recovery_policy_v4
+```
+
+The latest run wrote `results/recovery_policy_v4/`. The previous v4 outputs were retained in `results/recovery_policy_v4_before_load_fix/`. These generated folders and raw datasets are excluded by `.gitignore`, so include the CSVs, raw-data manifest and pinned environment in any reproducibility package. Energy is abstract; no network-lifetime estimate is reported. Public dataset checks concern classification only: WSN-DS is NS-2/LEACH simulated data; Intel Lab faults were injected and are not naturally labeled. ESP32, RAM, inference-time and power-meter measurements remain future work because the hardware is unavailable.
+
 ## Setup
 
 Run commands from the project root in Windows PowerShell. Create and activate the virtual environment if needed, then install dependencies:
@@ -51,7 +65,7 @@ This reuses the saved noisy feature sets, seeds, and node splits. Run the noisy-
 
 All experiment summaries include per-run accuracy, macro precision, macro recall, and macro F1; summary files report the mean and sample standard deviation across ten seeds. Macro metrics weight the three classes equally. The directories also contain `per_run_metrics.csv` and `mean_std_metrics.csv` files.
 
-## Recorded results
+## Earlier nodewise classifier results
 
 These are the results from the current ten-seed runs in this project:
 
@@ -95,7 +109,7 @@ Run the new recovery experiment with:
 python -m experiments.recovery_network_evaluation
 ```
 
-It writes separate outputs to `results/recovery_v2/` and preserves the original recovery CSVs. This is a one-relay topology proxy with documented assumptions, not a packet-level network simulator. See `docs/recovery_v2_assumptions.md` for metric definitions and limitations. A working, literature-cited manuscript draft is in `docs/paper_draft.md`.
+It writes separate outputs to `results/recovery_v2/` and preserves the original recovery CSVs. This is a one-relay topology proxy with documented assumptions, not a packet-level network simulator. See `docs/recovery_v2_assumptions.md` for metric definitions and limitations. The current manuscript draft is `docs/paper_draft_v4.md`.
 
 ### Packet-forwarding recovery evaluation
 
@@ -137,18 +151,18 @@ This newer, separate study uses node-held-out predictions, two fault-load settin
 
 This is the preserved initial run. Its all-normal control revealed that the 1,000-unit abstract battery budget caused service failure even without anomalous nodes. Do not use v2 alone to make claims about fault diagnosis or pool it with v3. See `docs/recovery_policy_v2.md` for the original design.
 
-### Recovery policy v3 (current calibrated-control run)
+### Recovery policy v3 (archived; superseded by v4)
 
 ```powershell
 python -m unittest discover -s tests -v
 python -m experiments.recovery_policy_v3
 ```
 
-This preserves v2 and writes independent results to `results/recovery_policy_v3/`. It doubles the abstract energy budget and adds a no-fault control, while retaining the 30 paired seeds, sparse and route-critical bottleneck topologies, 20%/40% fault loads, transient fault quarantine/readmission, permanent predicted-blackhole isolation and alerts. It also counts alternate-route fallbacks after link retry exhaustion. The primary paired PDR differences (diagnosis-aware minus blind rerouting) were −0.3471 (95% CI −0.3735 to −0.3208), −0.3710 (−0.3925 to −0.3495), −0.2861 (−0.3655 to −0.2067), and −0.5757 (−0.6366 to −0.5149) for bottleneck/20%, bottleneck/40%, sparse/20%, and sparse/40%, respectively. The healthy control achieved mean PDR 0.9998. These are synthetic stress-test results and show no diagnosis-aware delivery advantage. Energy and lifetime remain uncalibrated proxies; see `docs/recovery_policy_v3.md`.
+This preserves the original v3 run and writes its independent results to `results/recovery_policy_v3/`. Those results are historical and are not the current primary finding; use v4 and `docs/paper_draft_v4.md` for the up-to-date analysis. Energy and lifetime remain uncalibrated proxies; see `docs/recovery_policy_v3.md`.
 
 ### Dataset and hardware follow-up
 
-The WSN-DS and Intel Lab files have been downloaded; the ESP32 board and power meter are unavailable. See `docs/datasets_and_hardware_plan.md` for data handling, dataset limitations, and the device-measurement plan. The source audit and 18-paper candidate review set are tracked in `docs/literature_review.md`; the manuscript still needs full-text review and final bibliography checks before submission.
+The WSN-DS and Intel Lab files have been downloaded; the ESP32 board and power meter are unavailable. See `docs/datasets_and_hardware_plan.md` for data handling, dataset limitations, and the device-measurement plan. The source audit and 16 unique user-supplied papers are tracked in `docs/literature_review.md`; some full texts remain inaccessible and require review before submission.
 
 The WSN-DS and Intel Lab files have since been placed under `data/raw/`. Run their grouped, classifier-only evaluation with:
 
